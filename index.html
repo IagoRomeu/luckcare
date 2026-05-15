@@ -18,7 +18,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 /* LOGIN */
-#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--dark);position:relative;overflow:hidden}
+#login-screen{min-height:100vh;display:none!important;pointer-events:none;align-items:center;justify-content:center;background:var(--dark);position:relative;overflow:hidden}
 #login-screen::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(74,222,128,.12) 0%,transparent 70%);top:-100px;right:-100px;pointer-events:none}
 #login-screen::after{content:'';position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.08) 0%,transparent 70%);bottom:-80px;left:-80px;pointer-events:none}
 .lbox{background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:24px;padding:44px 40px;width:380px;position:relative;z-index:1;animation:fadeUp .4s ease both}
@@ -39,7 +39,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 .lerror{background:rgba(220,38,38,.15);border:.5px solid rgba(220,38,38,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#fca5a5;margin-top:10px;display:none}
 
 /* APP SHELL */
-#app{display:none;height:100vh;flex-direction:column}
+#app{display:flex;height:100vh;flex-direction:column}
 #app.v{display:flex!important;height:100vh;flex-direction:column}
 
 /* TOPBAR */
@@ -750,26 +750,9 @@ function startApp() {
   }
 }
 
-// Auto-login ao carregar
-document.addEventListener('DOMContentLoaded', () => {
-  // Tenta recuperar sessão anterior
-  try {
-    const saved = sessionStorage.getItem('lc_cu');
-    if (saved) {
-      const u = JSON.parse(saved);
-      // Valida que o usuário ainda existe
-      const base = defaultData().users;
-      const extra = (() => { try { return getData().users||[]; } catch(e){ return []; }})();
-      const todos = [...base];
-      extra.forEach(eu => { if(!todos.find(b=>b.email.toLowerCase()===eu.email.toLowerCase())) todos.push(eu); });
-      const ok = todos.find(x=>x.email.toLowerCase()===(u.email||'').toLowerCase());
-      if(ok) { CU = ok; startApp(); return; }
-    }
-  } catch(e){}
-  // Foca no campo email ao abrir
-  try { document.getElementById('lin-email').focus(); } catch(e){}
-  // Enter no campo email
-  document.getElementById('lin-email').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+// Inicia app direto sem login
+document.addEventListener('DOMContentLoaded', function() {
+  CU = { id:'u1', nome:'Tutor Principal', email:'luck@luckcare.com', perfil:'admin' };
   // Preenche date inputs com hoje
   const today = new Date().toISOString().split('T')[0];
   document.querySelectorAll('input[type=date]').forEach(i => { if(!i.value) i.value = today; });
