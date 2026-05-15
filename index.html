@@ -655,32 +655,55 @@ let calMes = new Date();
 let tlFiltro = 'todos';
 
 function doLogin() {
-  const emailEl = document.getElementById('lin-email');
-  const senhaEl = document.getElementById('lin-senha');
-  const errEl   = document.getElementById('lerror');
-  if (!emailEl || !senhaEl) return;
-  const email = (emailEl.value||'').trim().toLowerCase();
-  const senha = (senhaEl.value||'');
-  if (!email || !senha) {
-    errEl.textContent = 'Preencha e-mail e senha.';
-    errEl.style.display = 'block'; return;
+  try {
+    var emailEl = document.getElementById('lin-email');
+    var senhaEl = document.getElementById('lin-senha');
+    var errEl = document.getElementById('lerror');
+    var email = emailEl.value.trim().toLowerCase();
+    var senha = senhaEl.value;
+    if (!email || !senha) {
+      errEl.textContent = 'Preencha e-mail e senha.';
+      errEl.style.display = 'block';
+      return;
+    }
+    // Credenciais fixas - não dependem de nenhum storage
+    var USUARIOS = [
+      { id:'u1', nome:'Tutor Principal', email:'luck@luckcare.com', senha:'luck2024', perfil:'admin' },
+      { id:'u2', nome:'Esposa', email:'esposa@luckcare.com', senha:'luck2024', perfil:'familiar' }
+    ];
+    // Adiciona usuários extras do storage se disponível
+    try {
+      var d = getData();
+      if (d && d.users) {
+        for (var i = 0; i < d.users.length; i++) {
+          var eu = d.users[i];
+          var jaExiste = false;
+          for (var j = 0; j < USUARIOS.length; j++) {
+            if (USUARIOS[j].email.toLowerCase() === eu.email.toLowerCase()) { jaExiste = true; break; }
+          }
+          if (!jaExiste) USUARIOS.push(eu);
+        }
+      }
+    } catch(e2) { /* storage indisponível, usa só os fixos */ }
+    var usuario = null;
+    for (var k = 0; k < USUARIOS.length; k++) {
+      if (USUARIOS[k].email.toLowerCase() === email && USUARIOS[k].senha === senha) {
+        usuario = USUARIOS[k];
+        break;
+      }
+    }
+    if (!usuario) {
+      errEl.textContent = 'E-mail ou senha incorretos.';
+      errEl.style.display = 'block';
+      return;
+    }
+    errEl.style.display = 'none';
+    CU = usuario;
+    try { sessionStorage.setItem('lc_cu', JSON.stringify(usuario)); } catch(e3) {}
+    startApp();
+  } catch(e) {
+    alert('Erro no login: ' + e.message);
   }
-  // BUSCA USUÁRIO: sempre verifica defaultData() primeiro (independe de storage)
-  // depois mescla com usuários criados pelo admin salvos no storage
-  const base = defaultData().users;
-  const extra = (() => { try { const d = getData(); return d.users||[]; } catch(e){ return []; } })();
-  // Junta sem duplicar: extra sobrescreve base se mesmo email
-  const todos = [...base];
-  extra.forEach(eu => { if(!todos.find(b=>b.email.toLowerCase()===eu.email.toLowerCase())) todos.push(eu); });
-  const u = todos.find(x => x.email.toLowerCase() === email && x.senha === senha);
-  if (!u) {
-    errEl.textContent = 'E-mail ou senha incorretos.';
-    errEl.style.display = 'block'; return;
-  }
-  errEl.style.display = 'none';
-  CU = u;
-  try { sessionStorage.setItem('lc_cu', JSON.stringify(u)); } catch(e){}
-  startApp();
 }
 
 function doLogout() {
@@ -692,25 +715,39 @@ function doLogout() {
 }
 
 function startApp() {
-  // Esconde login, mostra app
-  const ls = document.getElementById('login-screen');
-  const ap = document.getElementById('app');
-  if(ls) ls.style.display = 'none';
-  if(ap) { ap.style.display = 'flex'; ap.classList.add('v'); }
-  // Atualiza topbar com proteção total
   try {
-    const d = getData();
-    const petNome = (d.pet&&d.pet.nome)?d.pet.nome:'Luck';
-    document.getElementById('tpet-name').textContent = petNome.split(' ')[0];
+    // Esconde tela de login
+    var ls = document.getElementById('login-screen');
+    var ap = document.getElementById('app');
+    if (ls) ls.style.display = 'none';
+    if (ap) {
+      ap.style.display = 'flex';
+      ap.classList.add('v');
+    }
+    // Atualiza nome do pet na topbar
+    try {
+      var d = getData();
+      var petNome = (d.pet && d.pet.nome) ? d.pet.nome : 'Luck';
+      document.getElementById('tpet-name').textContent = petNome.split(' ')[0];
+    } catch(e) {
+      document.getElementById('tpet-name').textContent = 'Luck';
+    }
+    // Atualiza nome do usuário
+    try {
+      var nomeUser = (CU && CU.nome) ? CU.nome : 'Usuário';
+      document.getElementById('tuser-name').textContent = nomeUser.split(' ')[0];
+      var iniciais = nomeUser.split(' ').map(function(n){ return n[0]; }).slice(0,2).join('').toUpperCase();
+      document.getElementById('tuser-ava').textContent = iniciais;
+    } catch(e) {}
+    // Renderiza dashboard
+    try {
+      renderDash();
+    } catch(e) {
+      console.error('Erro no dashboard:', e);
+    }
   } catch(e) {
-    document.getElementById('tpet-name').textContent = 'Luck';
+    alert('Erro ao iniciar app: ' + e.message);
   }
-  try {
-    document.getElementById('tuser-name').textContent = (CU&&CU.nome?CU.nome:'').split(' ')[0];
-    document.getElementById('tuser-ava').textContent = (CU&&CU.nome?CU.nome:'U').split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase();
-  } catch(e){}
-  // Renderiza dashboard com tratamento de erro
-  try { renderDash(); } catch(e) { console.error('renderDash erro:', e); }
 }
 
 // Auto-login ao carregar
