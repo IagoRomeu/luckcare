@@ -274,7 +274,10 @@ textarea.fi{resize:vertical;min-height:76px}
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="rel-alim"> Alimentacao</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="rel-comp"> Comportamento</label>
     </div>
-    <button class="btn bp" onclick="gerarRel()"><i class="ti ti-file-export"></i>Gerar relatorio</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn bp" onclick="gerarRel()"><i class="ti ti-file-export"></i>Gerar relatorio</button>
+      <button class="btn bg-btn" onclick="imprimirRel()" id="btn-imprimir-rel" style="display:none"><i class="ti ti-printer"></i>Imprimir / Salvar PDF</button>
+    </div>
   </div>
   <div id="rel-preview"></div>
 </div>
@@ -289,7 +292,10 @@ textarea.fi{resize:vertical;min-height:76px}
   <div class="g2" id="em-grid" style="margin-bottom:14px"></div>
   <div class="card" style="margin-bottom:14px"><div class="ctitle"><i class="ti ti-pill"></i>Medicamentos em uso</div><div id="em-meds"></div></div>
   <div class="card" style="margin-bottom:14px"><div class="ctitle"><i class="ti ti-phone-call"></i>Contatos de emergencia</div><div id="em-contatos"></div></div>
-  <div style="display:flex;gap:10px"><button class="btn bg-btn" style="flex:1" onclick="window.print()"><i class="ti ti-printer"></i>Imprimir</button><button class="btn bp" style="flex:1" onclick="toast('Compartilhado!','ok')"><i class="ti ti-share"></i>Compartilhar</button></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn bg-btn" style="flex:1" onclick="imprimirEmergencia()"><i class="ti ti-printer"></i>Imprimir / PDF</button>
+    <button class="btn bp" style="flex:1" onclick="compartilharEmergencia()"><i class="ti ti-share"></i>Compartilhar PDF</button>
+  </div>
 </div>
 
 <!-- PERFIL -->
@@ -324,6 +330,7 @@ textarea.fi{resize:vertical;min-height:76px}
   <div class="mtitle">Nova vacina <span class="mclose" onclick="closeM('m-vacina')"><i class="ti ti-x"></i></span></div>
   <div class="fg"><span class="fl">Nome da vacina</span><input class="fi" id="vax-nome" placeholder="Ex: V10, Antirrabica"></div>
   <div class="g2" style="gap:10px;margin-bottom:14px"><div class="fg" style="margin:0"><span class="fl">Data aplicada</span><input class="fi" id="vax-data" type="date"></div><div class="fg" style="margin:0"><span class="fl">Proxima dose</span><input class="fi" id="vax-prox" type="date"></div></div>
+  <div class="fg"><span class="fl">Frequencia (em dias) — calcula proxima dose automaticamente</span><input class="fi" id="vax-freq" type="number" placeholder="Ex: 365 para anual, 180 para semestral" oninput="calcProxVax()"></div>
   <div class="fg"><span class="fl">Lote</span><input class="fi" id="vax-lote" placeholder="Numero do lote"></div>
   <div class="fg"><span class="fl">Veterinario / Clinica</span><input class="fi" id="vax-vet" placeholder="Nome do profissional"></div>
   <div class="fg"><span class="fl">Observacoes</span><textarea class="fi" id="vax-obs" placeholder="Observacoes adicionais..."></textarea></div>
@@ -333,8 +340,9 @@ textarea.fi{resize:vertical;min-height:76px}
 <div class="mo" id="m-med"><div class="mbox">
   <div class="mtitle">Novo medicamento <span class="mclose" onclick="closeM('m-med')"><i class="ti ti-x"></i></span></div>
   <div class="fg"><span class="fl">Nome</span><input class="fi" id="med-nome" placeholder="Ex: Bravecto 1000mg"></div>
-  <div class="g2" style="gap:10px;margin-bottom:14px"><div class="fg" style="margin:0"><span class="fl">Dose</span><input class="fi" id="med-dose" placeholder="Ex: 1 comprimido"></div><div class="fg" style="margin:0"><span class="fl">Frequencia</span><input class="fi" id="med-freq" placeholder="Ex: A cada 90 dias"></div></div>
-  <div class="g2" style="gap:10px;margin-bottom:14px"><div class="fg" style="margin:0"><span class="fl">Data inicio</span><input class="fi" id="med-inicio" type="date"></div><div class="fg" style="margin:0"><span class="fl">Proxima dose / Fim</span><input class="fi" id="med-fim" type="date"></div></div>
+  <div class="g2" style="gap:10px;margin-bottom:14px"><div class="fg" style="margin:0"><span class="fl">Dose</span><input class="fi" id="med-dose" placeholder="Ex: 1 comprimido"></div><div class="fg" style="margin:0"><span class="fl">Descricao da frequencia</span><input class="fi" id="med-freq" placeholder="Ex: A cada 90 dias"></div></div>
+  <div class="g2" style="gap:10px;margin-bottom:14px"><div class="fg" style="margin:0"><span class="fl">Intervalo em dias (calcula proxima dose)</span><input class="fi" id="med-dias" type="number" placeholder="Ex: 90" oninput="calcProxMed()"></div><div class="fg" style="margin:0"><span class="fl">Data inicio</span><input class="fi" id="med-inicio" type="date" oninput="calcProxMed()"></div></div>
+  <div class="g2" style="gap:10px;margin-bottom:14px"><div class="fg" style="margin:0"><span class="fl">Proxima dose / Fim (preenchido automaticamente)</span><input class="fi" id="med-fim" type="date"></div><div class="fg" style="margin:0"></div></div>
   <div class="fg"><span class="fl">Motivo</span><input class="fi" id="med-motivo" placeholder="Ex: Prevencao antipulgas"></div>
   <div class="fg"><span class="fl">Veterinario que prescreveu</span><input class="fi" id="med-vet" placeholder="Nome do profissional"></div>
   <div class="fg"><span class="fl">Observacoes / efeitos</span><textarea class="fi" id="med-obs" placeholder="Reacoes observadas..."></textarea></div>
@@ -845,10 +853,10 @@ function salvarVacina() {
   var nome = val('vax-nome').trim();
   if (!nome) { toast('Preencha o nome da vacina', 'err'); return; }
   var d = getData();
-  d.vacinas.push({id:uid(),nome:nome,data:val('vax-data'),proxima:val('vax-prox'),lote:val('vax-lote').trim(),vet:val('vax-vet').trim(),obs:val('vax-obs').trim()});
+  d.vacinas.push({id:uid(),nome:nome,data:val('vax-data'),proxima:val('vax-prox'),freq:val('vax-freq'),lote:val('vax-lote').trim(),vet:val('vax-vet').trim(),obs:val('vax-obs').trim()});
   saveData(d);
   closeM('m-vacina');
-  clr('vax-nome'); clr('vax-lote'); clr('vax-vet'); clr('vax-obs');
+  clr('vax-nome'); clr('vax-freq'); clr('vax-lote'); clr('vax-vet'); clr('vax-obs');
   toast('Vacina salva!');
   renderVax();
 }
@@ -874,7 +882,8 @@ function renderVax() {
     if (v.vet) h += '<div style="font-size:11px;color:var(--tx3)">'+v.vet+'</div>';
     h += '</div>';
     h += '<span style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:'+sc.bg+';color:'+sc.c+';flex-shrink:0">'+sc.l+'</span>';
-    h += '<button class="btn bg-btn" style="padding:5px 8px" data-id="'+v.id+'" onclick="delBtnEl(this)"><i class="ti ti-trash"></i></button>';
+    h += '<button class="btn bg-btn" style="padding:5px 8px" data-id="'+v.id+'" data-col="vacinas" onclick="delBtnEl(this)"><i class="ti ti-trash"></i></button>';
+    if (v.proxima) h += '<button class="btn bg-btn" style="padding:5px 8px;color:#2563eb" title="Adicionar ao Calendario do iPhone" data-nome="'+v.nome+'" data-prox="'+v.proxima+'" onclick="addVaxCalendar(this.dataset.nome,this.dataset.prox)"><i class="ti ti-calendar-plus"></i></button>';
     h += '</div>';
     if (v.obs) h += '<div style="font-size:11px;color:var(--tx2);margin-top:10px;padding-top:10px;border-top:.5px solid var(--br)">'+v.obs+'</div>';
     h += '</div>';
@@ -889,10 +898,10 @@ function salvarMed() {
   var nome = val('med-nome').trim();
   if (!nome) { toast('Preencha o nome do medicamento', 'err'); return; }
   var d = getData();
-  d.medicamentos.push({id:uid(),nome:nome,dose:val('med-dose').trim(),freq:val('med-freq').trim(),inicio:val('med-inicio'),fim:val('med-fim'),motivo:val('med-motivo').trim(),vet:val('med-vet').trim(),obs:val('med-obs').trim()});
+  d.medicamentos.push({id:uid(),nome:nome,dose:val('med-dose').trim(),freq:val('med-freq').trim(),dias:val('med-dias'),inicio:val('med-inicio'),fim:val('med-fim'),motivo:val('med-motivo').trim(),vet:val('med-vet').trim(),obs:val('med-obs').trim()});
   saveData(d);
   closeM('m-med');
-  clr('med-nome'); clr('med-dose'); clr('med-freq'); clr('med-motivo'); clr('med-vet'); clr('med-obs');
+  clr('med-nome'); clr('med-dose'); clr('med-freq'); clr('med-dias'); clr('med-motivo'); clr('med-vet'); clr('med-obs');
   toast('Medicamento salvo!');
   renderMed();
 }
@@ -924,7 +933,8 @@ function renderMed() {
     h += '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:'+(ativo?'#fef3c7':'var(--bg)')+';color:'+(ativo?'#d97706':'var(--tx2)')+'">'+(ativo?'Ativo':'Encerrado')+'</span>';
     if (dy !== null && ativo && dy <= 15) h += '<div style="font-size:10px;color:#dc2626;margin-top:3px">vence em '+dy+'d</div>';
     h += '</div>';
-    h += '<button class="btn bg-btn" style="padding:5px 8px" data-id="'+m.id+'" onclick="delBtnEl(this)"><i class="ti ti-trash"></i></button>';
+    h += '<button class="btn bg-btn" style="padding:5px 8px" data-id="'+m.id+'" data-col="medicamentos" onclick="delBtnEl(this)"><i class="ti ti-trash"></i></button>';
+    if (m.fim) h += '<button class="btn bg-btn" style="padding:5px 8px;color:#2563eb" title="Adicionar ao Calendario do iPhone" data-nome="'+m.nome+'" data-fim="'+m.fim+'" onclick="addMedCalendar(this.dataset.nome,this.dataset.fim)"><i class="ti ti-calendar-plus"></i></button>';
     h += '</div>';
     if (m.obs) h += '<div style="font-size:11px;color:var(--tx2);margin-top:10px;padding-top:10px;border-top:.5px solid var(--br)">'+m.obs+'</div>';
     h += '</div>';
@@ -1384,6 +1394,8 @@ function gerarRel() {
   h += '<div style="text-align:center;font-size:10px;color:var(--tx3);margin-top:16px;padding-top:10px;border-top:.5px solid var(--br)">LuckCare - Prontuario Digital - '+dt+'</div></div>';
   set('rel-preview', h);
   toast('Relatorio gerado!');
+  var btnImp = el('btn-imprimir-rel');
+  if (btnImp) btnImp.style.display = 'inline-flex';
 }
 
 // ============================================================
@@ -1562,6 +1574,167 @@ function removerUsr(iid) {
   toast('Usuario removido.');
   renderUsr();
 }
+
+// ============================================================
+// CALCULO AUTOMATICO DE PROXIMAS DOSES
+// ============================================================
+function calcProxVax() {
+  var dias = parseInt(val('vax-freq'));
+  var dataBase = val('vax-data');
+  if (!dias || !dataBase) return;
+  var d = new Date(dataBase);
+  d.setDate(d.getDate() + dias);
+  el('vax-prox').value = d.toISOString().split('T')[0];
+}
+
+function calcProxMed() {
+  var dias = parseInt(val('med-dias'));
+  var dataBase = val('med-inicio');
+  if (!dias || !dataBase) return;
+  var d = new Date(dataBase);
+  d.setDate(d.getDate() + dias);
+  el('med-fim').value = d.toISOString().split('T')[0];
+}
+
+// ============================================================
+// ADICIONAR AO CALENDARIO DO IPHONE
+// ============================================================
+function addToCalendar(titulo, data, descricao) {
+  var dtStr = data.replace(/-/g, '');
+  var now = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+  var NL = String.fromCharCode(13) + String.fromCharCode(10);
+  var linhas = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//LuckCare//App//PT',
+    'BEGIN:VEVENT',
+    'UID:' + uid() + '@luckcare',
+    'DTSTAMP:' + now,
+    'DTSTART;VALUE=DATE:' + dtStr,
+    'DTEND;VALUE=DATE:' + dtStr,
+    'SUMMARY:' + titulo,
+    'DESCRIPTION:' + (descricao||''),
+    'BEGIN:VALARM',
+    'TRIGGER:-P7D',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Lembrete: ' + titulo,
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ];
+  var ics = linhas.join(NL);
+  var blob = new Blob([ics], {type: 'text/calendar'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'luckcare-evento.ics';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Evento exportado! Abra o arquivo para adicionar ao Calendario do iPhone.');
+}
+
+function addVaxCalendar(nome, proxima) {
+  if (!proxima) { toast('Vacina sem data de proxima dose', 'err'); return; }
+  var d7 = new Date(proxima);
+  d7.setDate(d7.getDate() - 7);
+  addToCalendar('Vacina ' + nome + ' - Luck', proxima, 'Levar o Luck para vacina: ' + nome);
+}
+
+function addMedCalendar(nome, fim) {
+  if (!fim) { toast('Medicamento sem data de proxima dose', 'err'); return; }
+  addToCalendar('Medicamento ' + nome + ' - Luck', fim, 'Dar ou renovar medicamento do Luck: ' + nome);
+}
+
+// ============================================================
+// IMPRESSAO / PDF DO RELATORIO
+// ============================================================
+function imprimirRel() {
+  var conteudo = el('rel-preview') ? el('rel-preview').innerHTML : '';
+  if (!conteudo) { toast('Gere o relatorio primeiro', 'err'); return; }
+  var pet = getData().pet;
+  var janela = window.open('', '_blank');
+  janela.document.write('<html><head><title>Relatorio LuckCare - ' + pet.nome + '</title>');
+  janela.document.write('<style>');
+  janela.document.write('body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a;max-width:800px;margin:0 auto}');
+  janela.document.write('h1{color:#1a1a2e;font-size:20px;margin-bottom:4px}');
+  janela.document.write('.card{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:16px}');
+  janela.document.write('div[style*="background:var(--dk)"]{background:#1a1a2e!important;color:#fff!important;padding:16px;border-radius:8px;margin-bottom:16px}');
+  janela.document.write('div[style*="background:#f0fdf4"]{background:#f0fdf4!important;padding:14px;border-radius:8px;margin-bottom:16px}');
+  janela.document.write('@media print{body{padding:10px}button{display:none}}');
+  janela.document.write('</style></head><body>');
+  janela.document.write('<div style="text-align:center;margin-bottom:20px"><h1>LuckCare - Prontuario Digital</h1><p style="color:#666;font-size:13px">Gerado em ' + new Date().toLocaleDateString('pt-BR') + '</p></div>');
+  janela.document.write(conteudo);
+  janela.document.write('<script>window.onload=function(){window.print();}<\/script>');
+  janela.document.write('</body></html>');
+  janela.document.close();
+}
+
+// ============================================================
+// IMPRESSAO / PDF DA EMERGENCIA
+// ============================================================
+function imprimirEmergencia() {
+  var d = getData();
+  var p = d.pet;
+  var t = hoje();
+  var ats = (d.medicamentos||[]).filter(function(m){return !m.fim || m.fim >= t;});
+  
+  var janela = window.open('', '_blank');
+  janela.document.write('<html><head><title>Emergencia - ' + p.nome + '</title>');
+  janela.document.write('<style>');
+  janela.document.write('*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a;max-width:600px;margin:0 auto}');
+  janela.document.write('.hd{background:#dc2626;color:#fff;padding:16px;border-radius:8px;margin-bottom:16px;text-align:center}');
+  janela.document.write('.hd h1{font-size:22px;margin-bottom:4px}.hd p{font-size:13px;opacity:.85}');
+  janela.document.write('.pet{display:flex;gap:14px;background:#f8f8f8;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:14px;align-items:center}');
+  janela.document.write('.pet-name{font-size:18px;font-weight:700}.pet-meta{font-size:12px;color:#666;margin-top:3px}');
+  janela.document.write('.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}');
+  janela.document.write('.card{border:1px solid #e5e7eb;border-radius:8px;padding:12px}');
+  janela.document.write('.card-lbl{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}');
+  janela.document.write('.card-val{font-size:15px;font-weight:600}');
+  janela.document.write('.sec{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid #1a1a2e;padding-bottom:4px;margin:14px 0 8px}');
+  janela.document.write('.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:13px}');
+  janela.document.write('.ft{text-align:center;font-size:10px;color:#999;margin-top:20px;padding-top:10px;border-top:1px solid #e5e7eb}');
+  janela.document.write('@media print{body{padding:8px}}');
+  janela.document.write('</style></head><body>');
+  
+  janela.document.write('<div class="hd"><h1>EMERGENCIA</h1><p>Informacoes vitais do Luck</p></div>');
+  
+  janela.document.write('<div class="pet">');
+  janela.document.write('<div><div class="pet-name">' + (p.nome||'--') + '</div>');
+  janela.document.write('<div class="pet-meta">' + (p.raca||'--') + ' &bull; ' + (p.sexo==='macho'?'Macho':'Femea') + ' &bull; ' + idade(p.nasc) + ' &bull; ' + (p.cor||'--') + '</div>');
+  janela.document.write('<div class="pet-meta">Microchip: ' + (p.chip||'--') + ' &bull; Plano: ' + (p.plano||'--') + '</div>');
+  janela.document.write('</div></div>');
+  
+  janela.document.write('<div class="grid">');
+  janela.document.write('<div class="card" style="border-color:#fca5a5;background:#fff7f7"><div class="card-lbl" style="color:#dc2626">Alergias</div><div class="card-val">' + (p.alergias||'Nenhuma conhecida') + '</div></div>');
+  janela.document.write('<div class="card" style="border-color:#fcd34d;background:#fffbeb"><div class="card-lbl" style="color:#d97706">Sensibilidades</div><div class="card-val">' + (p.sens||'--') + '</div></div>');
+  janela.document.write('<div class="card" style="border-color:#86efac;background:#f0fdf4"><div class="card-lbl" style="color:#16a34a">Tipo sanguineo</div><div class="card-val">' + (p.sangue||'--') + '</div></div>');
+  janela.document.write('<div class="card" style="border-color:#93c5fd;background:#eff6ff"><div class="card-lbl" style="color:#2563eb">Plano de saude</div><div class="card-val">' + (p.plano||'--') + '</div></div>');
+  janela.document.write('</div>');
+  
+  if (ats.length) {
+    janela.document.write('<div class="sec">Medicamentos em uso</div>');
+    var i;
+    for (i = 0; i < ats.length; i++) {
+      janela.document.write('<div class="row"><span><b>' + ats[i].nome + '</b> &bull; ' + (ats[i].dose||'') + '</span><span style="color:#666">' + (ats[i].motivo||'') + '</span></div>');
+    }
+  }
+  
+  janela.document.write('<div class="sec">Contatos de emergencia</div>');
+  if (p.vet) janela.document.write('<div class="row"><span>Veterinaria: <b>' + p.vet + '</b></span><span style="color:#2563eb;font-weight:700">' + (p.vetTel||'') + '</span></div>');
+  if (p.emergTel) janela.document.write('<div class="row"><span>Emergencia 24h</span><span style="color:#dc2626;font-weight:700">' + p.emergTel + '</span></div>');
+  if (!p.vet && !p.emergTel) janela.document.write('<div style="font-size:12px;color:#999;padding:8px 0">Adicione contatos no Perfil do Luck.</div>');
+  
+  janela.document.write('<div class="ft">LuckCare &bull; Prontuario Digital &bull; Gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div>');
+  janela.document.write('<script>window.onload=function(){window.print();}<\/script>');
+  janela.document.write('</body></html>');
+  janela.document.close();
+}
+
+function compartilharEmergencia() {
+  imprimirEmergencia();
+  toast('Use a opcao Compartilhar do Safari apos a impressao para salvar como PDF ou enviar.');
+}
+
 
 function delBtnEl(btn) {
   var col = btn.getAttribute('data-col');
