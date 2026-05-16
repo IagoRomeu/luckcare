@@ -127,7 +127,13 @@ textarea.fi{resize:vertical;min-height:76px}
 .uname{font-size:14px;font-weight:600;color:var(--tx)}
 .uemail{font-size:11px;color:var(--tx3);margin-top:1px}
 
-#toast{position:fixed;bottom:24px;right:24px;background:var(--dk);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;display:none;z-index:1000;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+.amsg{padding:12px 16px;border-radius:12px;max-width:88%;font-size:13px;line-height:1.5}
+.amsg-u{background:var(--dk);color:#fff;align-self:flex-end;border-radius:12px 12px 2px 12px}
+.amsg-a{background:var(--w);border:.5px solid var(--br);color:var(--tx);align-self:flex-start;border-radius:12px 12px 12px 2px}
+.amsg-a b{color:var(--gr2)}
+.asug{padding:6px 12px;border-radius:20px;background:var(--w);border:.5px solid var(--br);font-size:11px;color:var(--tx2);cursor:pointer;white-space:nowrap}
+.asug:hover{background:var(--dk);color:#fff}
+#toast{position:fixed;bottom:24px;right:24px;#toast{position:fixed;bottom:24px;right:24px;background:var(--dk);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;display:none;z-index:1000;box-shadow:0 4px 20px rgba(0,0,0,.25)}
 #toast.ok{border-left:3px solid var(--gr)}
 #toast.err{border-left:3px solid var(--rd)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
@@ -172,6 +178,7 @@ textarea.fi{resize:vertical;min-height:76px}
   <div class="ni" onclick="nav('calendario')" data-s="calendario" title="Calendario"><i class="ti ti-calendar"></i></div>
   <div class="ni" onclick="nav('documentos')" data-s="documentos" title="Documentos"><i class="ti ti-folder"></i></div>
   <div class="ni" onclick="nav('relatorio')" data-s="relatorio" title="Relatorio"><i class="ti ti-file-export"></i></div>
+  <div class="ni" onclick="nav('assistente')" data-s="assistente" title="Assistente"><i class="ti ti-message-circle-question"></i></div>
   <div class="ni nb" onclick="nav('perfil')" data-s="perfil" title="Perfil"><i class="ti ti-paw"></i></div>
 </div>
 
@@ -309,6 +316,20 @@ textarea.fi{resize:vertical;min-height:76px}
 <div class="screen" id="screen-usuarios">
   <div class="ph"><div><div class="pt">Usuarios</div><div class="ps">Quem tem acesso ao LuckCare</div></div><button class="btn bp" onclick="openM('m-usr')"><i class="ti ti-plus"></i>Novo usuario</button></div>
   <div id="usr-lista"></div>
+</div>
+
+<!-- ASSISTENTE -->
+<div class="screen" id="screen-assistente">
+  <div class="ph"><div><div class="pt">Assistente do Luck</div><div class="ps">Pergunte qualquer coisa sobre o historico dele</div></div></div>
+  <div class="card" style="margin-bottom:14px">
+    <div style="font-size:12px;color:var(--tx2);margin-bottom:12px">Exemplos de perguntas:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px" id="assis-sugestoes"></div>
+    <div style="display:flex;gap:8px">
+      <input class="fi" id="assis-input" placeholder="Ex: Quando o Luck toma Bravecto?" style="flex:1" onkeydown="if(event.key==='Enter')perguntarAssis()">
+      <button class="btn bp" onclick="perguntarAssis()"><i class="ti ti-send"></i></button>
+    </div>
+  </div>
+  <div id="assis-chat" style="display:flex;flex-direction:column;gap:12px"></div>
 </div>
 
 </div><!-- /content -->
@@ -660,6 +681,7 @@ window.addEventListener('DOMContentLoaded', function() {
   RENDERS.perfil = renderPerfil;
   RENDERS.emergencia = renderEmerg;
   RENDERS.usuarios = renderUsr;
+  RENDERS.assistente = renderAssis;
   renderDash();
 });
 
@@ -716,9 +738,15 @@ function renderDash() {
   var totTr = (d.treinos||[]).length;
   var diasV = vxProx ? diasAte(vxProx.proxima) : null;
 
+  // Proximo medicamento
+  var medArr = (d.medicamentos||[]).filter(function(mx){return mx.fim && mx.fim >= t;});
+  medArr.sort(function(a,b){return a.fim < b.fim ? -1 : 1;});
+  var medProx = medArr.length ? medArr[0] : null;
+  var diasMed = medProx ? diasAte(medProx.fim) : null;
+
   var stats = [
     {ico:'ti-vaccine',bg:'#dcfce7',col:'#16a34a',lb:'Proxima vacina',vl:diasV!==null?(diasV+'d'):'--',sb:vxProx?vxProx.nome:'Em dia'},
-    {ico:'ti-pill',bg:'#fef3c7',col:'#d97706',lb:'Medicamentos',vl:medAt,sb:'ativos agora'},
+    {ico:'ti-pill',bg:'#fef3c7',col:'#d97706',lb:'Proximo medicamento',vl:diasMed!==null?(diasMed+'d'):'--',sb:medProx?medProx.nome:'Sem agendado'},
     {ico:'ti-weight',bg:'#dbeafe',col:'#2563eb',lb:'Peso atual',vl:pet.peso?(pet.peso+'kg'):'--',sb:'registrado'},
     {ico:'ti-run',bg:'#ede9fe',col:'#7c3aed',lb:'Atividades',vl:totTr,sb:'registradas'}
   ];
@@ -935,6 +963,7 @@ function renderMed() {
     h += '</div>';
     h += '<button class="btn bg-btn" style="padding:5px 8px" data-id="'+m.id+'" data-col="medicamentos" onclick="delBtnEl(this)"><i class="ti ti-trash"></i></button>';
     if (m.fim) h += '<button class="btn bg-btn" style="padding:5px 8px;color:#2563eb" title="Adicionar ao Calendario do iPhone" data-nome="'+m.nome+'" data-fim="'+m.fim+'" onclick="addMedCalendar(this.dataset.nome,this.dataset.fim)"><i class="ti ti-calendar-plus"></i></button>';
+    if (ativo && m.dias) h += '<button class="btn bgreen" style="padding:5px 10px;font-size:11px" data-id="'+m.id+'" onclick="concluirMed(this.dataset.id)"><i class="ti ti-check"></i>Concluido</button>';
     h += '</div>';
     if (m.obs) h += '<div style="font-size:11px;color:var(--tx2);margin-top:10px;padding-top:10px;border-top:.5px solid var(--br)">'+m.obs+'</div>';
     h += '</div>';
@@ -1733,6 +1762,404 @@ function imprimirEmergencia() {
 function compartilharEmergencia() {
   imprimirEmergencia();
   toast('Use a opcao Compartilhar do Safari apos a impressao para salvar como PDF ou enviar.');
+}
+
+
+// ============================================================
+// CONCLUIR MEDICAMENTO E GERAR PROXIMA DOSE
+// ============================================================
+function concluirMed(iid) {
+  var d = getData();
+  var med = null;
+  var i;
+  for (i = 0; i < d.medicamentos.length; i++) {
+    if (d.medicamentos[i].id === iid) { med = d.medicamentos[i]; break; }
+  }
+  if (!med) return;
+  if (!confirm('Marcar "' + med.nome + '" como concluido e agendar a proxima dose?')) return;
+
+  // Registrar na linha do tempo
+  d.eventos.push({
+    id: uid(),
+    titulo: med.nome + ' administrado',
+    categoria: 'medicamento',
+    data: hoje(),
+    desc: 'Dose concluida. ' + (med.dose||'') + ' ' + (med.freq||''),
+    vet: med.vet
+  });
+
+  // Calcular proxima dose
+  var diasFreq = parseInt(med.dias);
+  if (diasFreq && med.fim) {
+    var proxData = new Date(med.fim);
+    proxData.setDate(proxData.getDate() + diasFreq);
+    var proxStr = proxData.toISOString().split('T')[0];
+
+    // Encerrar dose atual
+    med.ativo = false;
+    med.fim = hoje();
+
+    // Criar nova dose automaticamente
+    var novaDose = {
+      id: uid(),
+      nome: med.nome,
+      dose: med.dose,
+      freq: med.freq,
+      dias: med.dias,
+      inicio: hoje(),
+      fim: proxStr,
+      motivo: med.motivo,
+      vet: med.vet,
+      obs: med.obs
+    };
+    d.medicamentos.push(novaDose);
+    saveData(d);
+    toast(med.nome + ' concluido! Proxima dose agendada para ' + fd(proxStr));
+  } else {
+    // Sem frequencia definida, apenas encerra
+    med.ativo = false;
+    saveData(d);
+    toast(med.nome + ' marcado como concluido!');
+  }
+  renderMed();
+  renderDash();
+}
+
+
+// ============================================================
+// ASSISTENTE INTELIGENTE
+// ============================================================
+var ASSIS_HIST = [];
+
+var SUGESTOES = [
+  'Quando o Luck toma Bravecto?',
+  'Qual a proxima vacina do Luck?',
+  'Quando foi o ultimo exame?',
+  'O Luck tomou algum medicamento hoje?',
+  'Quantas ocorrencias de vomito o Luck teve?',
+  'Qual a dieta atual do Luck?',
+  'Quais medicamentos o Luck usa?',
+  'Quando foi a ultima vez que o Luck correu?'
+];
+
+function renderAssis() {
+  var h = '';
+  var i;
+  for (i = 0; i < SUGESTOES.length; i++) {
+    h += '<span class="asug" onclick="usarSugestao(this.textContent)">' + SUGESTOES[i] + '</span>';
+  }
+  set('assis-sugestoes', h);
+}
+
+function usarSugestao(txt) {
+  el('assis-input').value = txt;
+  perguntarAssis();
+}
+
+function addMsg(txt, tipo) {
+  var div = document.createElement('div');
+  div.className = 'amsg amsg-' + tipo;
+  div.innerHTML = txt;
+  el('assis-chat').appendChild(div);
+  div.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function perguntarAssis() {
+  var q = val('assis-input').trim();
+  if (!q) return;
+  clr('assis-input');
+  addMsg(q, 'u');
+  var resp = processarPergunta(q.toLowerCase());
+  setTimeout(function() { addMsg(resp, 'a'); }, 300);
+}
+
+function processarPergunta(q) {
+  var d = getData();
+  var t = hoje();
+  var i, item, dy, resp;
+
+  // ---- MEDICAMENTOS ----
+  var isMed = q.indexOf('medicamento') !== -1 || q.indexOf('remedio') !== -1 ||
+    q.indexOf('breve') !== -1 || q.indexOf('bravecto') !== -1 ||
+    q.indexOf('comprimido') !== -1 || q.indexOf('dose') !== -1;
+
+  if (isMed) {
+    // Buscar nome especifico
+    var medNome = buscarNomeEm(q, d.medicamentos, 'nome');
+    var meds = d.medicamentos;
+
+    if (q.indexOf('proximo') !== -1 || q.indexOf('proxima') !== -1 || q.indexOf('quando') !== -1) {
+      var ativos = meds.filter(function(m){return m.fim && m.fim >= t;});
+      ativos.sort(function(a,b){return a.fim < b.fim ? -1 : 1;});
+      if (medNome) {
+        var encontrado = meds.filter(function(m){return m.nome.toLowerCase().indexOf(medNome) !== -1 && m.fim;});
+        if (encontrado.length) {
+          encontrado.sort(function(a,b){return a.fim < b.fim ? -1 : 1;});
+          dy = diasAte(encontrado[0].fim);
+          return '<b>' + encontrado[0].nome + '</b> — proxima dose em <b>' + fd(encontrado[0].fim) + '</b>' + (dy >= 0 ? ' (em ' + dy + ' dias)' : ' (data passada)') + '.';
+        }
+        return 'Nao encontrei o medicamento "' + medNome + '" com data de proxima dose cadastrada.';
+      }
+      if (ativos.length) {
+        dy = diasAte(ativos[0].fim);
+        return 'O proximo medicamento do Luck e <b>' + ativos[0].nome + '</b>, previsto para <b>' + fd(ativos[0].fim) + '</b> (em ' + dy + ' dias).';
+      }
+      return 'Nenhum medicamento com proxima dose agendada no momento.';
+    }
+
+    if (q.indexOf('ultimo') !== -1 || q.indexOf('ultima') !== -1) {
+      var comData = meds.filter(function(m){return m.inicio;});
+      comData.sort(function(a,b){return b.inicio < a.inicio ? -1 : 1;});
+      if (medNome) {
+        var achado = comData.filter(function(m){return m.nome.toLowerCase().indexOf(medNome) !== -1;});
+        if (achado.length) return 'A ultima administracao de <b>' + achado[0].nome + '</b> foi em <b>' + fd(achado[0].inicio) + '</b>.';
+        return 'Nao encontrei registro de "' + medNome + '" no historico.';
+      }
+      if (comData.length) return 'O ultimo medicamento registrado foi <b>' + comData[0].nome + '</b> em <b>' + fd(comData[0].inicio) + '</b>.';
+      return 'Nenhum medicamento registrado ainda.';
+    }
+
+    if (q.indexOf('quais') !== -1 || q.indexOf('lista') !== -1 || q.indexOf('todos') !== -1 || q.indexOf('usa') !== -1) {
+      var atv = meds.filter(function(m){return !m.fim || m.fim >= t;});
+      if (!atv.length) return 'O Luck nao tem medicamentos ativos no momento.';
+      var lista = atv.map(function(m){return '<b>' + m.nome + '</b>' + (m.dose?' ('+m.dose+')':'') + (m.fim?' — ate '+fd(m.fim):'');}).join('<br>');
+      return 'Medicamentos ativos do Luck:<br>' + lista;
+    }
+
+    if (medNome) {
+      var ms = meds.filter(function(m){return m.nome.toLowerCase().indexOf(medNome) !== -1;});
+      if (ms.length) {
+        var mx = ms[0];
+        resp = '<b>' + mx.nome + '</b><br>';
+        if (mx.dose) resp += 'Dose: ' + mx.dose + '<br>';
+        if (mx.freq) resp += 'Frequencia: ' + mx.freq + '<br>';
+        if (mx.inicio) resp += 'Inicio: ' + fd(mx.inicio) + '<br>';
+        if (mx.fim) resp += 'Proxima dose: <b>' + fd(mx.fim) + '</b>' + (diasAte(mx.fim) >= 0 ? ' (em ' + diasAte(mx.fim) + ' dias)' : ' (vencido)') + '<br>';
+        if (mx.motivo) resp += 'Motivo: ' + mx.motivo;
+        return resp;
+      }
+    }
+
+    if (meds.length) {
+      return 'O Luck tem ' + meds.length + ' medicamento(s) registrado(s). Os ativos sao: ' + meds.filter(function(m){return !m.fim||m.fim>=t;}).map(function(m){return m.nome;}).join(', ') + '.';
+    }
+    return 'Nenhum medicamento registrado ainda.';
+  }
+
+  // ---- VACINAS ----
+  var isVax = q.indexOf('vacina') !== -1 || q.indexOf('vacinacao') !== -1;
+  if (isVax) {
+    var vaxNome = buscarNomeEm(q, d.vacinas, 'nome');
+    var vaxs = d.vacinas;
+
+    if (q.indexOf('proxima') !== -1 || q.indexOf('proximo') !== -1 || q.indexOf('quando') !== -1) {
+      if (vaxNome) {
+        var vEnc = vaxs.filter(function(v){return v.nome.toLowerCase().indexOf(vaxNome) !== -1 && v.proxima;});
+        if (vEnc.length) {
+          dy = diasAte(vEnc[0].proxima);
+          return 'A vacina <b>' + vEnc[0].nome + '</b> esta prevista para <b>' + fd(vEnc[0].proxima) + '</b> (em ' + dy + ' dias).';
+        }
+        return 'Nao encontrei a vacina "' + vaxNome + '" com data de proxima dose.';
+      }
+      var futVax = vaxs.filter(function(v){return v.proxima && v.proxima >= t;});
+      futVax.sort(function(a,b){return a.proxima < b.proxima ? -1 : 1;});
+      if (futVax.length) {
+        dy = diasAte(futVax[0].proxima);
+        return 'A proxima vacina do Luck e <b>' + futVax[0].nome + '</b>, prevista para <b>' + fd(futVax[0].proxima) + '</b> (em ' + dy + ' dias).';
+      }
+      return 'Nenhuma vacina com data futura cadastrada.';
+    }
+
+    if (q.indexOf('ultima') !== -1 || q.indexOf('ultimo') !== -1) {
+      var comD = vaxs.filter(function(v){return v.data;});
+      comD.sort(function(a,b){return b.data < a.data ? -1 : 1;});
+      if (vaxNome) {
+        var vAch = comD.filter(function(v){return v.nome.toLowerCase().indexOf(vaxNome) !== -1;});
+        if (vAch.length) return 'A ultima <b>' + vAch[0].nome + '</b> foi aplicada em <b>' + fd(vAch[0].data) + '</b>.';
+        return 'Nao encontrei registro da vacina "' + vaxNome + '".';
+      }
+      if (comD.length) return 'A ultima vacina aplicada foi <b>' + comD[0].nome + '</b> em <b>' + fd(comD[0].data) + '</b>.';
+      return 'Nenhuma vacina registrada ainda.';
+    }
+
+    if (vaxNome) {
+      var vxs = vaxs.filter(function(v){return v.nome.toLowerCase().indexOf(vaxNome) !== -1;});
+      if (vxs.length) {
+        var vx = vxs[0];
+        resp = '<b>' + vx.nome + '</b><br>';
+        if (vx.data) resp += 'Aplicada em: ' + fd(vx.data) + '<br>';
+        if (vx.proxima) resp += 'Proxima dose: <b>' + fd(vx.proxima) + '</b>' + (diasAte(vx.proxima) >= 0 ? ' (em ' + diasAte(vx.proxima) + ' dias)' : ' (vencida)') + '<br>';
+        if (vx.lote) resp += 'Lote: ' + vx.lote + '<br>';
+        if (vx.vet) resp += 'Aplicada por: ' + vx.vet;
+        return resp;
+      }
+    }
+
+    if (vaxs.length) {
+      return 'O Luck tem ' + vaxs.length + ' vacina(s) registrada(s): ' + vaxs.map(function(v){return v.nome;}).join(', ') + '.';
+    }
+    return 'Nenhuma vacina registrada ainda.';
+  }
+
+  // ---- EXAMES ----
+  var isEx = q.indexOf('exame') !== -1 || q.indexOf('hemograma') !== -1 ||
+    q.indexOf('resultado') !== -1 || q.indexOf('laudo') !== -1;
+  if (isEx) {
+    var exNome = buscarNomeEm(q, d.exames, 'tipo');
+    var exs = d.exames;
+    if (q.indexOf('ultimo') !== -1 || q.indexOf('ultima') !== -1 || q.indexOf('quando') !== -1) {
+      var exOrd = exs.slice().sort(function(a,b){return b.data < a.data ? -1 : 1;});
+      if (exNome) {
+        var exAch = exOrd.filter(function(e){return e.tipo.toLowerCase().indexOf(exNome) !== -1;});
+        if (exAch.length) {
+          resp = 'O ultimo <b>' + exAch[0].tipo + '</b> foi em <b>' + fd(exAch[0].data) + '</b>';
+          if (exAch[0].resultado) resp += '.<br>Resultado: ' + exAch[0].resultado;
+          return resp;
+        }
+        return 'Nao encontrei exame do tipo "' + exNome + '".';
+      }
+      if (exOrd.length) {
+        resp = 'O ultimo exame foi <b>' + exOrd[0].tipo + '</b> em <b>' + fd(exOrd[0].data) + '</b>';
+        if (exOrd[0].resultado) resp += '.<br>Resultado: ' + exOrd[0].resultado;
+        return resp;
+      }
+      return 'Nenhum exame registrado ainda.';
+    }
+    if (exs.length) {
+      return 'O Luck tem ' + exs.length + ' exame(s) registrado(s). O mais recente: <b>' + exs.sort(function(a,b){return b.data<a.data?-1:1;})[0].tipo + '</b> em ' + fd(exs[0].data) + '.';
+    }
+    return 'Nenhum exame registrado ainda.';
+  }
+
+  // ---- OCORRENCIAS / VOMITO / ALIMENTACAO ----
+  var isOcorr = q.indexOf('vomito') !== -1 || q.indexOf('vomitou') !== -1 ||
+    q.indexOf('ocorrencia') !== -1 || q.indexOf('nao comeu') !== -1 ||
+    q.indexOf('diarreia') !== -1 || q.indexOf('recusou') !== -1;
+  if (isOcorr) {
+    var ocrs = d.ocorrencias || [];
+    var tipoMap = {vomito:'vomitou', vomitou:'vomitou', diarreia:'diarreia',
+      'nao comeu':'nao_comeu', recusou:'recusou'};
+    var filtroTipo = null;
+    var k;
+    for (k in tipoMap) {
+      if (q.indexOf(k) !== -1) { filtroTipo = tipoMap[k]; break; }
+    }
+    if (filtroTipo) {
+      var filtradas = ocrs.filter(function(o){return o.tipo === filtroTipo;});
+      if (!filtradas.length) return 'Nenhuma ocorrencia de "' + filtroTipo + '" registrada ainda.';
+      filtradas.sort(function(a,b){return b.data < a.data ? -1 : 1;});
+      resp = 'O Luck teve <b>' + filtradas.length + ' ocorrencia(s)</b> do tipo "' + filtroTipo + '".<br>';
+      resp += 'Mais recente: <b>' + fd(filtradas[0].data) + '</b>';
+      if (filtradas[0].desc) resp += ' — ' + filtradas[0].desc;
+      return resp;
+    }
+    if (ocrs.length) {
+      var ult = ocrs.slice().sort(function(a,b){return b.data<a.data?-1:1;})[0];
+      return 'O Luck tem <b>' + ocrs.length + ' ocorrencia(s)</b> registrada(s). A mais recente: <b>' + (ult.tipo||'--') + '</b> em ' + fd(ult.data) + (ult.desc?' — '+ult.desc:'') + '.';
+    }
+    return 'Nenhuma ocorrencia alimentar registrada ainda.';
+  }
+
+  // ---- DIETA ----
+  var isDieta = q.indexOf('dieta') !== -1 || q.indexOf('comida') !== -1 ||
+    q.indexOf('alimentacao') !== -1 || q.indexOf('come') !== -1 || q.indexOf('almoco') !== -1;
+  if (isDieta) {
+    var dieta = null;
+    for (i = 0; i < (d.dietas||[]).length; i++) { if (d.dietas[i].ativa) { dieta = d.dietas[i]; break; } }
+    if (!dieta) return 'Nenhuma dieta padrao cadastrada no momento.';
+    resp = 'A dieta atual do Luck e <b>' + dieta.nome + '</b> (desde ' + fd(dieta.desde) + ').<br>';
+    for (i = 0; i < dieta.refeicoes.length; i++) {
+      var rf = dieta.refeicoes[i];
+      resp += '<b>' + rf.nome + ' (' + rf.hora + '):</b> ' + (rf.comp||'--') + (rf.qtd?' — '+rf.qtd+'g':'') + '<br>';
+    }
+    if (dieta.obs) resp += '<br>Obs: ' + dieta.obs;
+    return resp;
+  }
+
+  // ---- TREINOS / ATIVIDADES ----
+  var isTr = q.indexOf('treino') !== -1 || q.indexOf('corrida') !== -1 ||
+    q.indexOf('caminhada') !== -1 || q.indexOf('atividade') !== -1 || q.indexOf('correu') !== -1;
+  if (isTr) {
+    var trs = d.treinos || [];
+    if (!trs.length) return 'Nenhuma atividade registrada ainda.';
+    var trOrd = trs.slice().sort(function(a,b){return b.data<a.data?-1:1;});
+    if (q.indexOf('ultimo') !== -1 || q.indexOf('ultima') !== -1 || q.indexOf('quando') !== -1) {
+      var ult2 = trOrd[0];
+      resp = 'A ultima atividade foi <b>' + (CAT_NM[ult2.tipo]||ult2.tipo) + '</b> em <b>' + fd(ult2.data) + '</b>';
+      if (ult2.dist) resp += ', percorrendo ' + ult2.dist + ' km';
+      if (ult2.dur) resp += ' em ' + ult2.dur + ' minutos';
+      return resp + '.';
+    }
+    var totKm2 = trs.reduce(function(a,tr){return a+(parseFloat(tr.dist)||0);}, 0);
+    return 'O Luck tem <b>' + trs.length + ' atividade(s)</b> registrada(s), totalizando <b>' + totKm2.toFixed(1) + ' km</b>.';
+  }
+
+  // ---- PESO ----
+  var isPeso = q.indexOf('peso') !== -1 || q.indexOf('kg') !== -1 || q.indexOf('quanto pesa') !== -1;
+  if (isPeso) {
+    var pet = d.pet;
+    if (pet.peso) return 'O Luck pesa <b>' + pet.peso + ' kg</b>. Edite no perfil quando pesar novamente.';
+    return 'O peso do Luck nao esta cadastrado ainda. Adicione no Perfil.';
+  }
+
+  // ---- PERFIL GERAL ----
+  var isPerfil = q.indexOf('quantos anos') !== -1 || q.indexOf('idade') !== -1 ||
+    q.indexOf('raca') !== -1 || q.indexOf('chip') !== -1 || q.indexOf('microchip') !== -1 ||
+    q.indexOf('plano') !== -1 || q.indexOf('sangue') !== -1;
+  if (isPerfil) {
+    var pet2 = d.pet;
+    if (q.indexOf('idade') !== -1 || q.indexOf('anos') !== -1) return 'O Luck tem <b>' + idade(pet2.nasc) + '</b> (nasceu em ' + fd(pet2.nasc) + ').';
+    if (q.indexOf('chip') !== -1) return 'O microchip do Luck e <b>' + (pet2.chip||'nao cadastrado') + '</b>.';
+    if (q.indexOf('plano') !== -1) return 'O plano de saude do Luck e <b>' + (pet2.plano||'nao cadastrado') + '</b>.';
+    if (q.indexOf('sangue') !== -1) return 'O tipo sanguineo do Luck e <b>' + (pet2.sangue||'nao cadastrado') + '</b>.';
+    if (q.indexOf('raca') !== -1) return 'O Luck e da raca <b>' + (pet2.raca||'nao cadastrada') + '</b>.';
+    return 'O Luck e um <b>' + (pet2.raca||'--') + '</b>, ' + (pet2.sexo==='macho'?'macho':'femea') + ', com <b>' + idade(pet2.nasc) + '</b> e <b>' + (pet2.peso||'--') + ' kg</b>.';
+  }
+
+  // ---- COMPORTAMENTO ----
+  var isComp = q.indexOf('comportamento') !== -1 || q.indexOf('reatividade') !== -1 ||
+    q.indexOf('ansiedade') !== -1 || q.indexOf('medo') !== -1 || q.indexOf('episodio') !== -1;
+  if (isComp) {
+    var comps = d.comportamentos || [];
+    if (!comps.length) return 'Nenhum episodio comportamental registrado ainda.';
+    var cOrd = comps.slice().sort(function(a,b){return b.data<a.data?-1:1;});
+    resp = 'O Luck tem <b>' + comps.length + ' registro(s)</b> comportamentais. ';
+    resp += 'O mais recente: <b>' + (CAT_NM[cOrd[0].tipo]||cOrd[0].tipo) + '</b> em ' + fd(cOrd[0].data);
+    if (cOrd[0].intensidade) resp += ' (intensidade: ' + cOrd[0].intensidade + ')';
+    return resp + '.';
+  }
+
+  // ---- RESPOSTA GENERICA ----
+  var total = (d.vacinas||[]).length + (d.medicamentos||[]).length + (d.exames||[]).length +
+    (d.ocorrencias||[]).length + (d.treinos||[]).length + (d.comportamentos||[]).length;
+
+  return 'Nao entendi bem a pergunta. Tente perguntar sobre:<br>' +
+    '<b>Medicamentos</b> — proximo, ultimo, quais usa<br>' +
+    '<b>Vacinas</b> — proxima, ultima, quando<br>' +
+    '<b>Exames</b> — ultimo, resultado<br>' +
+    '<b>Ocorrencias</b> — vomito, diarreia, quantas vezes<br>' +
+    '<b>Dieta</b> — o que come, horarios<br>' +
+    '<b>Treinos</b> — ultima atividade, total de km<br>' +
+    '<b>Perfil</b> — peso, idade, microchip<br><br>' +
+    'O Luck tem <b>' + total + ' registro(s)</b> no total.';
+}
+
+function buscarNomeEm(q, lista, campo) {
+  // Tenta encontrar nome de item na pergunta
+  var i;
+  for (i = 0; i < lista.length; i++) {
+    var nome = (lista[i][campo]||'').toLowerCase();
+    var palavras = nome.split(' ');
+    var j;
+    for (j = 0; j < palavras.length; j++) {
+      if (palavras[j].length > 3 && q.indexOf(palavras[j]) !== -1) {
+        return palavras[j];
+      }
+    }
+    // Tenta nome completo
+    if (nome.length > 3 && q.indexOf(nome.substring(0,6)) !== -1) return nome.substring(0,6);
+  }
+  return null;
 }
 
 
