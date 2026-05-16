@@ -138,13 +138,29 @@ textarea.fi{resize:vertical;min-height:76px}
 #toast.err{border-left:3px solid var(--rd)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 </style>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyBtsOHZq1mRbO2HMyn1eN2EDhMXcxVtLFQ",
+  authDomain: "luckcare-ed593.firebaseapp.com",
+  projectId: "luckcare-ed593",
+  storageBucket: "luckcare-ed593.firebasestorage.app",
+  messagingSenderId: "116910640927",
+  appId: "1:116910640927:web:ebd893c9aa16d975286a2a"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+var DOC_ID = "luck-principal";
+</script>
 </head>
 <body>
 
 <!-- TOPBAR -->
 <div id="app">
 <div class="topbar">
-  <div class="tlogo"><div class="tlogo-dot"></div>LuckCare</div>
+  <div class="tlogo"><div class="tlogo-dot" id="fb-dot" title="Sincronizando..."></div>LuckCare</div>
   <div class="tpet">
     <img id="tpet-img" src="data:image/jpeg;base64,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" alt="Luck">
     <span id="tpet-nome">Luck</span>
@@ -463,10 +479,11 @@ textarea.fi{resize:vertical;min-height:76px}
 
 <script>
 // ============================================================
-// STORAGE
+// STORAGE — Firebase Firestore (sync em tempo real)
 // ============================================================
 var SK = 'luckcare_v2';
 var MEM = null;
+var RENDERS = {};
 
 function defData() {
   return {
@@ -492,6 +509,15 @@ function defData() {
   };
 }
 
+function fixData(d) {
+  var def = defData();
+  var arr = ['eventos','vacinas','medicamentos','exames','ocorrencias','dietas','comportamentos','treinos','documentos','users'];
+  for (var i = 0; i < arr.length; i++) {
+    if (!Array.isArray(d[arr[i]])) d[arr[i]] = def[arr[i]];
+  }
+  if (!d.pet || typeof d.pet !== 'object') d.pet = def.pet;
+}
+
 function getData() {
   if (MEM) return JSON.parse(JSON.stringify(MEM));
   try {
@@ -508,23 +534,47 @@ function getData() {
   return JSON.parse(JSON.stringify(def));
 }
 
-function fixData(d) {
-  var def = defData();
-  var arr = ['eventos','vacinas','medicamentos','exames','ocorrencias','dietas','comportamentos','treinos','documentos','users'];
-  for (var i = 0; i < arr.length; i++) {
-    if (!Array.isArray(d[arr[i]])) d[arr[i]] = def[arr[i]];
-  }
-  if (!d.pet || typeof d.pet !== 'object') d.pet = def.pet;
-}
-
 function saveData(d) {
   MEM = JSON.parse(JSON.stringify(d));
   try { localStorage.setItem(SK, JSON.stringify(d)); } catch(e) {}
-  try { sessionStorage.setItem(SK, JSON.stringify(d)); } catch(e) {}
+  if (typeof db !== 'undefined') {
+    db.collection('luckcare').doc(DOC_ID).set(d)
+      .catch(function(e) { console.warn('Firebase save:', e); });
+  }
 }
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+}
+
+function initFirebase() {
+  if (typeof db === 'undefined') return;
+  var dot = document.getElementById('fb-dot');
+  db.collection('luckcare').doc(DOC_ID).onSnapshot(function(doc) {
+    if (doc.exists) {
+      var d = doc.data();
+      fixData(d);
+      var prev = JSON.stringify(MEM);
+      MEM = d;
+      try { localStorage.setItem(SK, JSON.stringify(d)); } catch(e) {}
+      if (dot) { dot.style.background = '#4ade80'; dot.title = 'Sincronizado'; }
+      if (prev && JSON.stringify(d) !== prev) {
+        var cur = document.querySelector('.screen.active');
+        if (cur && RENDERS) {
+          var k = cur.id.replace('screen-','');
+          if (RENDERS[k]) { try { RENDERS[k](); } catch(ex) {} }
+        }
+      }
+    } else {
+      var local = getData();
+      db.collection('luckcare').doc(DOC_ID).set(local)
+        .then(function(){ if (dot) dot.style.background = '#4ade80'; })
+        .catch(function(e){ console.warn('Firebase init:', e); if (dot) dot.style.background = '#f87171'; });
+    }
+  }, function(err) {
+    console.warn('Firebase err:', err);
+    if (dot) { dot.style.background = '#f87171'; dot.title = 'Sem conexao com servidor'; }
+  });
 }
 
 // ============================================================
@@ -620,7 +670,6 @@ function toast(msg, tp) {
 // ============================================================
 var calMes = new Date();
 var tlFiltro = 'todos';
-var RENDERS = {};
 
 function nav(s) {
   var sc = document.querySelectorAll('.screen');
@@ -683,6 +732,7 @@ window.addEventListener('DOMContentLoaded', function() {
   RENDERS.usuarios = renderUsr;
   RENDERS.assistente = renderAssis;
   renderDash();
+  initFirebase();
 });
 
 // ============================================================
