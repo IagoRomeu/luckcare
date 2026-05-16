@@ -141,6 +141,7 @@ textarea.fi{resize:vertical;min-height:76px}
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script>
 var firebaseConfig = {
   apiKey: "AIzaSyBtsOHZq1mRbO2HMyn1eN2EDhMXcxVtLFQ",
@@ -152,6 +153,7 @@ var firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 var db = firebase.firestore();
+var storage = firebase.storage();
 var DOC_ID = "luck-principal";
 </script>
 </head>
@@ -446,8 +448,21 @@ var DOC_ID = "luck-principal";
   <div class="fg"><span class="fl">Nome do documento</span><input class="fi" id="doc-nome" placeholder="Ex: Hemograma Jun 2026"></div>
   <div class="fg"><span class="fl">Categoria</span><select class="fsel" id="doc-cat"><option value="exame">Exame</option><option value="receita">Receita</option><option value="vacina">Carteira de vacina</option><option value="contrato">Contrato / plano</option><option value="foto">Foto</option><option value="outro">Outro</option></select></div>
   <div class="fg"><span class="fl">Data</span><input class="fi" id="doc-data" type="date"></div>
+  <div class="fg"><span class="fl">Arquivo (PDF ou foto — opcional)</span>
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--bg);border:.5px solid var(--br);border-radius:9px;cursor:pointer">
+      <i class="ti ti-upload" style="font-size:18px;color:var(--tx2)"></i>
+      <span id="doc-file-label" style="font-size:13px;color:var(--tx2)">Toque para selecionar arquivo...</span>
+      <input type="file" id="doc-file" accept=".pdf,image/*" style="display:none" onchange="docFileChanged(this)">
+    </label>
+    <div id="doc-upload-progress" style="display:none;margin-top:8px">
+      <div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden">
+        <div id="doc-progress-bar" style="height:100%;background:var(--gr2);width:0%;transition:width .3s"></div>
+      </div>
+      <div id="doc-progress-txt" style="font-size:11px;color:var(--tx2);margin-top:4px">Enviando...</div>
+    </div>
+  </div>
   <div class="fg"><span class="fl">Descricao / notas</span><textarea class="fi" id="doc-desc" placeholder="Resultado, observacoes..."></textarea></div>
-  <div class="mact"><button class="btn bg-btn" onclick="closeM('m-doc')">Cancelar</button><button class="btn bp" onclick="salvarDoc()">Salvar</button></div>
+  <div class="mact"><button class="btn bg-btn" onclick="closeM('m-doc')">Cancelar</button><button class="btn bp" id="doc-salvar-btn" onclick="salvarDoc()">Salvar</button></div>
 </div></div>
 
 <div class="mo" id="m-perfil"><div class="mbox">
@@ -1361,16 +1376,75 @@ function renderCal() {
 // ============================================================
 // DOCUMENTOS
 // ============================================================
+function docFileChanged(input) {
+  var label = el('doc-file-label');
+  if (input.files && input.files[0]) {
+    label.textContent = input.files[0].name;
+    label.style.color = 'var(--tx)';
+  } else {
+    label.textContent = 'Toque para selecionar arquivo...';
+    label.style.color = 'var(--tx2)';
+  }
+}
+
 function salvarDoc() {
   var nome = val('doc-nome').trim();
   if (!nome) { toast('Preencha o nome do documento', 'err'); return; }
-  var d = getData();
-  d.documentos.push({id:uid(),nome:nome,cat:val('doc-cat'),data:val('doc-data'),desc:val('doc-desc').trim()});
-  saveData(d);
-  closeM('m-doc');
-  clr('doc-nome'); clr('doc-desc');
-  toast('Documento salvo!');
-  renderDoc();
+  var fileInput = el('doc-file');
+  var file = fileInput && fileInput.files && fileInput.files[0];
+
+  if (file && typeof storage !== 'undefined') {
+    // Upload com Firebase Storage
+    var btnSalvar = el('doc-salvar-btn');
+    if (btnSalvar) btnSalvar.disabled = true;
+    var prog = el('doc-upload-progress');
+    var bar = el('doc-progress-bar');
+    var txt = el('doc-progress-txt');
+    if (prog) prog.style.display = 'block';
+
+    var path = 'documentos/' + uid() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    var ref = storage.ref(path);
+    var task = ref.put(file);
+
+    task.on('state_changed',
+      function(snap) {
+        var pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+        if (bar) bar.style.width = pct + '%';
+        if (txt) txt.textContent = 'Enviando... ' + pct + '%';
+      },
+      function(err) {
+        toast('Erro no upload: ' + err.message, 'err');
+        if (btnSalvar) btnSalvar.disabled = false;
+        if (prog) prog.style.display = 'none';
+      },
+      function() {
+        task.snapshot.ref.getDownloadURL().then(function(url) {
+          var d = getData();
+          d.documentos.push({id:uid(),nome:nome,cat:val('doc-cat'),data:val('doc-data'),
+            desc:val('doc-desc').trim(),fileUrl:url,fileName:file.name,fileType:file.type});
+          saveData(d);
+          closeM('m-doc');
+          clr('doc-nome'); clr('doc-desc');
+          if (fileInput) fileInput.value = '';
+          var lbl = el('doc-file-label');
+          if (lbl) { lbl.textContent = 'Toque para selecionar arquivo...'; lbl.style.color = 'var(--tx2)'; }
+          if (prog) prog.style.display = 'none';
+          if (btnSalvar) btnSalvar.disabled = false;
+          toast('Documento salvo com arquivo!');
+          renderDoc();
+        });
+      }
+    );
+  } else {
+    // Salvar sem arquivo
+    var d = getData();
+    d.documentos.push({id:uid(),nome:nome,cat:val('doc-cat'),data:val('doc-data'),desc:val('doc-desc').trim()});
+    saveData(d);
+    closeM('m-doc');
+    clr('doc-nome'); clr('doc-desc');
+    toast('Documento salvo!');
+    renderDoc();
+  }
 }
 
 function renderDoc() {
@@ -1383,14 +1457,20 @@ function renderDoc() {
   var i, doc;
   for (i = 0; i < ds.length; i++) {
     doc = ds[i];
-    h += '<div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px">';
-    h += '<div class="lico" style="background:'+(CC[doc.cat]||'var(--bg)')+';color:var(--tx2)"><i class="ti '+(CI[doc.cat]||'ti-file')+'"></i></div>';
+    h += '<div class="card" style="margin-bottom:10px">';
+    h += '<div style="display:flex;align-items:center;gap:12px">';
+    h += '<div class="lico" style="background:'+(CC[doc.cat]||'var(--bg2)')+';color:var(--tx2)"><i class="ti '+(CI[doc.cat]||'ti-file')+'"></i></div>';
     h += '<div class="lin"><div class="lname">'+doc.nome+'</div>';
     h += '<div class="lsub">'+(CAT_NM[doc.cat]||doc.cat)+(doc.data?' - '+fd(doc.data):'')+'</div>';
     if (doc.desc) h += '<div class="lsub">'+doc.desc.substring(0,60)+'</div>';
+    if (doc.fileName) h += '<div class="lsub" style="color:var(--gr2)"><i class="ti ti-paperclip"></i> '+doc.fileName+'</div>';
     h += '</div>';
-    h += '<button class="btn bg-btn" style="padding:5px 8px" data-id="'+doc.id+'" onclick="delBtnEl(this)"><i class="ti ti-trash"></i></button>';
-    h += '</div>';
+    h += '<div style="display:flex;gap:6px;flex-shrink:0">';
+    if (doc.fileUrl) {
+      h += '<a href="'+doc.fileUrl+'" target="_blank" class="btn bg-btn" style="padding:5px 8px;color:#2563eb;text-decoration:none" title="Visualizar"><i class="ti ti-eye"></i></a>';
+    }
+    h += '<button class="btn bg-btn" style="padding:5px 8px" data-id="'+doc.id+'" data-col="documentos" onclick="delBtnEl(this)"><i class="ti ti-trash"></i></button>';
+    h += '</div></div></div>';
   }
   set('doc-lista', h);
 }
